@@ -1,0 +1,17 @@
+{
+  "stock_code": "6510",
+  "run_mode": "ci",
+  "summary": {
+    "error_count": 1,
+    "warn_count": 0,
+    "info_count": 0
+  },
+  "results": [
+    {
+      "rule": "missing_value_check",
+      "severity": "ERROR",
+      "period": "2025Q4",
+      "message": "數值缺失 (Missing Value)"
+    }
+  ]
+}
