@@ -1,59 +1,60 @@
 # EPS Validator v2
 
-這是一個用來驗證 **年度 EPS API**、**季度 EPS API** 與 **年季對帳邏輯** 的 Python 專案範本。
+這是一個用來驗證 **年度 EPS API**、**季度 EPS API** 與 **年季對帳邏輯** 的 Python 專案範本，支援單檔模式與批次模式，並可輸出 machine-readable 的 JSON report 與 human-readable 的 Markdown report。[1][2][3]
 
-設計目標：不是只做一次性的資料清理，而是可以把資料驗證真正放進 pipeline、CI、排程任務與日常研究流程裡。
+設計目標不是只做一次性的資料清理，而是把資料驗證真正放進 pipeline、CI、排程任務與日常研究流程裡；目前專案也已經支援 batch summary 輸出，可直接拿來做 nightly validation 或 GitHub Actions artifact。[1][2]
 
----
+***
 
 ## 專案目標
 
-這個專案主要解決以下問題：
+這個專案主要解決以下問題：[1]
 
-- 年度 EPS 與季度 EPS 來自不同 API，必須分開驗證。
-- 年資料與季資料之間不能互相覆蓋，但可以做 reconciliation 檢查。
-- API 目前可能尚未穩定，因此需要支援 fallback sample 檔案。
-- 驗證結果不能只有 pass/fail，還要輸出可讀的 JSON / Markdown report。
-- 之後要能掛進 GitHub Actions、排程或每日資料檢查流程。
+- 年度 EPS 與季度 EPS 來自不同 API，必須分開驗證。[1]
+- 年資料與季資料之間不能互相覆蓋，但可以做 reconciliation 檢查。[1]
+- API 可能暫時不穩定，因此需要支援 fallback sample 檔案。[1]
+- 驗證結果不能只有 pass/fail，還要輸出可讀的 JSON / Markdown report。[1]
+- 需要支援單檔執行與多股票 batch 執行。[4][5]
+- 批次結果需要有 summary 層，方便 CI / dashboard / daily check 使用。[2][3]
 
----
+***
 
 ## 功能概覽
 
 ### 驗證層分成三層
 
-1. **Annual validator**
-   - 檢查年度 period 格式
-   - 檢查歷史 / forecast 分界
-   - 檢查 `Low <= Mean <= High`
-   - 檢查重複 period
+1. **Annual validator** [1]
+   - 檢查年度 period 格式。[1]
+   - 檢查歷史 / forecast 分界。[1]
+   - 檢查 `Low <= Mean <= High`。[1]
+   - 檢查重複 period。[1]
 
-2. **Quarterly validator**
-   - 檢查季度 period 格式
-   - 檢查歷史季度是否連續
-   - 檢查 forecast 是否插入歷史區間
-   - 檢查 `Low <= Mean <= High`
+2. **Quarterly validator** [1]
+   - 檢查季度 period 格式。[1]
+   - 檢查歷史季度是否連續。[1]
+   - 檢查 forecast 是否插入歷史區間。[1]
+   - 檢查 `Low <= Mean <= High`。[1]
 
-3. **Reconcile validator**
-   - 檢查 annual 是否約等於 Q1+Q2+Q3+Q4
-   - 檢查年度值存在但季度不完整
-   - 檢查季度存在但年度不存在
-   - 使用 tolerance 避免被四捨五入差異誤判
+3. **Reconcile validator** [1]
+   - 檢查 annual 是否約等於 Q1+Q2+Q3+Q4。[1]
+   - 檢查年度值存在但季度不完整。[1]
+   - 檢查季度存在但年度不存在。[1]
+   - 使用 tolerance 避免被四捨五入差異誤判。[1]
 
----
+***
 
 ## 支援的資料來源模式
 
 ### `file`
-只讀本地 JSON 檔案，不打 API。
+只讀本地 JSON 檔案，不打 API。[1]
 
 ### `api`
-強制從 API 取資料，API 失敗就直接中止。
+強制從 API 取資料，API 失敗就直接中止。[1]
 
 ### `hybrid`
-優先打 API；若 API 回傳錯誤、timeout 或 response 結構異常，就 fallback 到本地 sample JSON。
+優先打 API；若 API 回傳錯誤、timeout 或 response 結構異常，就 fallback 到本地 sample JSON。[1]
 
-例如 API 回傳：
+例如 API 回傳以下 payload 時，即使 HTTP status 是 200，也應視為 API failure，而不是正常資料：[1][6]
 
 ```json
 {
@@ -62,9 +63,59 @@
 }
 ```
 
-這種情況 HTTP 可能是 200，但 payload 其實不是有效業務資料，因此 loader 需要把這類 response 視為 API failure，而不是正常資料。
+***
 
----
+## 單檔與批次模式
+
+### 單檔模式
+
+單檔模式適合本地快速驗證單一股票，輸出一組 `report.json` / `report.md`。[1][6]
+
+### 批次模式
+
+批次模式透過 `--stocks-file` 讀入股票清單，會為每一檔股票各自產生 individual report，並額外輸出 `summary.json` 與 `summary.md` 作為整批結果摘要。[4][5][2][3]
+
+目前 batch summary 已包含以下欄位，可直接作為 CI summary schema：[2]
+
+- `stock_code`
+- `stock_name`
+- `country`
+- `status`
+- `annual_source`
+- `quarterly_source`
+- `annual_errors`
+- `annual_warns`
+- `quarterly_errors`
+- `quarterly_warns`
+- `reconcile_errors`
+- `reconcile_warns`
+- `error`
+
+***
+
+## 輸出檔案
+
+### 單檔輸出
+
+單檔執行會產生：[1][6]
+
+- `output/reports/report.json`
+- `output/reports/report.md`
+
+### 批次輸出
+
+批次執行會產生：[5][2][3]
+
+- `output/reports/2454_report.json`
+- `output/reports/2454_report.md`
+- `output/reports/2330_report.json`
+- `output/reports/2330_report.md`
+- `output/reports/AAPL_report.json`
+- `output/reports/AAPL_report.md`
+- `output/reports/summary.json`
+- `output/reports/summary.md`
+
+***
 
 ## 專案結構
 
@@ -76,9 +127,10 @@ eps-validator-v2/
 ├── .env.example
 ├── .gitignore
 ├── data/
-│   └── samples/
-│       ├── 2454_annual.json
-│       └── 2454_quarterly.json
+│   ├── samples/
+│   │   ├── 2454_annual.json
+│   │   └── 2454_quarterly.json
+│   └── test_stocks.json
 ├── output/
 │   └── reports/
 ├── src/
@@ -86,13 +138,15 @@ eps-validator-v2/
 │   ├── config.py
 │   ├── loader.py
 │   ├── main.py
+│   ├── stock_list.py
 │   ├── models.py
 │   ├── normalizers/
 │   │   ├── annual.py
 │   │   └── quarterly.py
 │   ├── reporters/
 │   │   ├── json_reporter.py
-│   │   └── markdown_reporter.py
+│   │   ├── markdown_reporter.py
+│   │   └── batch_summary_reporter.py
 │   ├── utils/
 │   │   ├── periods.py
 │   │   └── severity.py
@@ -108,173 +162,73 @@ eps-validator-v2/
     └── test_reconcile_validator.py
 ```
 
----
+這個結構延續原本專案設計，並加入 batch stock list 與 batch summary reporter。[1][2][3]
+
+***
 
 ## 各檔案用途
 
-### `requirements.txt`
-安裝專案所需套件：
-
-- `pytest`
-- `requests`
-
 ### `src/config.py`
-放所有執行參數設定：
-
-- validation tolerance
-- API timeout
-- source mode
-- fallback 路徑
-- token 環境變數讀取
-
-### `src/models.py`
-定義資料結構，例如：
-
-- `ValidationItem`
-- `ValidationReport`
+放所有執行參數設定，包含 validation tolerance、API timeout、source mode、fallback 路徑、token 與 `.env` 載入。[7][1]
 
 ### `src/loader.py`
-負責資料載入：
-
-- 讀本地 JSON
-- 建立 Authorization header
-- 建立 API URL
-- 打 API
-- 檢查 API payload 是否其實是 `status=error`
-- fallback 到 sample 檔
-
-### `src/normalizers/annual.py`
-把 annual API / JSON 轉成統一內部格式。
-
-### `src/normalizers/quarterly.py`
-把 quarterly API / JSON 轉成統一內部格式。
-
-### `src/validators/common_rules.py`
-放共用 helper，例如建立 `ValidationItem`。
-
-### `src/validators/annual_validator.py`
-只驗 annual。
-
-### `src/validators/quarterly_validator.py`
-只驗 quarterly。
-
-### `src/validators/reconcile_validator.py`
-只驗 annual 與 quarterly 之間的關係。
-
-### `src/reporters/json_reporter.py`
-輸出機器可讀的 JSON report。
-
-### `src/reporters/markdown_reporter.py`
-輸出人可讀的 Markdown report。
+負責資料載入：讀本地 JSON、建立 Authorization header、建立 API URL、打 API、檢查 `status=error` payload、在 hybrid 模式下 fallback 到 sample 檔。[8][1]
 
 ### `src/main.py`
-主程式入口，負責：
+主程式入口，負責讀參數、決定單檔或批次模式、載入 annual / quarterly payload、normalize、執行三層 validation、輸出 report，最後依規則決定 exit code。[1][4][5]
 
-1. 讀參數
-2. 決定 source mode
-3. 載入 annual / quarterly payload
-4. normalize
-5. 跑三層 validation
-6. 輸出 report
-7. 根據規則決定 exit code
+### `src/stock_list.py`
+負責讀入 batch 模式的股票清單，例如 `data/test_stocks.json`。[4][5]
 
-### `tests/`
-放單元測試。
+### `src/reporters/batch_summary_reporter.py`
+輸出批次 summary 的 JSON / Markdown，供 CI artifact 與人工作業檢視使用。[3][2]
 
----
+***
 
-## 內部資料格式
+## `.env` 與參數覆蓋規則
 
-normalizer 之後的 annual / quarterly 都會長成相同概念：
+目前專案已改成以 `.env` 作為常用預設值來源，平常執行時不需要每次手動傳一長串參數；CLI 則保留為臨時覆蓋用途。[7][4][9]
 
-```python
-{
-    "stock_code": "2454",
-    "stock_name": "聯發科",
-    "country": "TW",
-    "granularity": "annual",
-    "series": [
-        {
-            "period": "2025",
-            "year": 2025,
-            "quarter": None,
-            "is_forecast": False,
-            "mean": 66.16,
-            "low": None,
-            "high": None
-        }
-    ]
-}
+建議優先順序如下：[7]
+
+1. CLI 參數
+2. `.env`
+3. 程式內建預設值
+
+也就是說，如果 `.env` 已經設定完整，日常執行通常只需要：[9][5]
+
+```bash
+PYTHONPATH=. python -m src.main
 ```
 
-季度資料則只是 `quarter` 會有值，例如 `1~4`。
+***
 
-這樣做的好處是 validator 不需要知道原始 API 的巢狀結構，只需要驗標準格式。
+## 建議的 `.env` 內容
 
----
+```dotenv
+UANALYZE_SOURCE=hybrid
+UANALYZE_STOCKS_FILE=data/test_stocks.json
+UANALYZE_STOCK_CODE=2454
+UANALYZE_COUNTRY=TW
 
-## 驗證規則設計
+UANALYZE_ANNUAL_URL=https://develop.api.uanalyze.com.tw/data_fetch/api/ReutersSmartEstimate_EPS/{stock_code}?country={country}
+UANALYZE_QUARTERLY_URL=https://develop.api.uanalyze.com.tw/data_fetch/api/ReutersSmartEstimate_EPS_Quarterly/{stock_code}?country={country}
 
-### Annual validator
+UANALYZE_ANNUAL_FALLBACK=data/samples/2454_annual.json
+UANALYZE_QUARTERLY_FALLBACK=data/samples/2454_quarterly.json
 
-檢查：
+UANALYZE_JSON_REPORT=output/reports/report.json
+UANALYZE_MD_REPORT=output/reports/report.md
 
-- `period` 是否符合 `YYYY` 或 `YYYY(f)`
-- 是否有 duplicate period
-- `mean` 是否為數字
-- `Low <= Mean <= High`
-- 若 `low = mean = high`，標成 `INFO`
-- forecast 年份是否與歷史年份重疊
-
-### Quarterly validator
-
-檢查：
-
-- `period` 是否符合 `YYYYQn` 或 `YYYYQn(f)`
-- 是否有 duplicate period
-- `mean` 是否為數字
-- `Low <= Mean <= High`
-- 歷史季度是否連續，例如不能有 Q1、Q3 但沒有 Q2
-- forecast 季度不能插進歷史區間
-
-### Reconcile validator
-
-檢查：
-
-- 若某年沒有 annual，但有 quarterly，標成 `annual_missing`
-- 若某年有 annual，但季度不滿四季，標成 `quarterly_incomplete`
-- 若四季完整，檢查 annual 是否等於四季加總
-- 容忍小數差異：
-  - `diff <= 0.05` → `INFO match`
-  - `0.05 < diff <= 0.5` → `WARN close but not exact`
-  - `diff > 0.5` → `WARN needs review`
-
----
-
-## Source metadata
-
-每次執行都會把來源資訊寫進 report：
-
-```json
-{
-  "source_metadata": {
-    "annual_source": "fallback_file",
-    "annual_url": "https://...",
-    "annual_api_error": "ValueError: API returned error payload: code=E400004, message=['Not found.']",
-    "quarterly_source": "api",
-    "quarterly_url": "https://...",
-    "quarterly_api_error": null
-  }
-}
+UANALYZE_API_TOKEN=your_token
+UANALYZE_API_TIMEOUT=10
 ```
 
-這段資訊非常重要，因為可以從中得知：
+如果走單檔模式，`UANALYZE_STOCK_CODE` 很重要；若缺少 `stock_code` 且 source 是 `api`，loader 會因為無法組 API request 而直接失敗。[9][8]
 
-- 這次 report 是吃到真 API 還是 sample
-- annual 與 quarterly 是否來自不同來源
-- API 是 HTTP fail 還是 payload business error
+如果走批次模式，請設定 `UANALYZE_STOCKS_FILE`，讓程式進入 batch 分支。[4][5]
 
----
+***
 
 ## 安裝方式
 
@@ -285,7 +239,7 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-Windows PowerShell：
+Windows PowerShell：[1]
 
 ```powershell
 python -m venv .venv
@@ -298,18 +252,29 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
----
+如果專案已經使用 `.env` 自動載入，`requirements.txt` 建議至少包含以下套件：[1]
 
-## sample 檔案準備方式
+- `pytest`
+- `requests`
+- `python-dotenv`
 
-如果已有 JSON，將檔案放到 data/samples/ 目錄下，例如：
+***
 
-```text
-data/samples/2454_annual.json
-data/samples/2454_quarterly.json
+## 股票清單格式
+
+批次模式的股票清單建議使用 JSON，例如：[4][2]
+
+```json
+[
+  {"stock_code": "2454", "stock_name": "聯發科", "country": "TW"},
+  {"stock_code": "2330", "stock_name": "台積電", "country": "TW"},
+  {"stock_code": "AAPL", "stock_name": "蘋果公司", "country": "USA"}
+]
 ```
 
----
+這樣 summary report 就能直接帶出 `stock_name`，不需要額外對照代號。[2][3]
+
+***
 
 ## 執行方式
 
@@ -324,189 +289,103 @@ PYTHONPATH=. python -m src.main \
   --md-report output/reports/report.md
 ```
 
-### 模式二：強制讀 API
+### 模式二：強制讀 API（單檔）
 
 ```bash
-export UANALYZE_API_TOKEN='your_token'
 PYTHONPATH=. python -m src.main \
   --source api \
-  --stock-code 1101 \
-  --country TW \
-  --annual-url 'https://develop.api.uanalyze.com.tw/data_fetch/api/ReutersSmartEstimate_EPS/{stock_code}?country={country}' \
-  --quarterly-url 'https://develop.api.uanalyze.com.tw/data_fetch/api/ReutersSmartEstimate_EPS_Quarterly/{stock_code}?country={country}' \
-  --annual-fallback data/samples/2454_annual.json \
-  --quarterly-fallback data/samples/2454_quarterly.json \
-  --json-report output/reports/report.json \
-  --md-report output/reports/report.md
+  --stock-code 2454 \
+  --country TW
 ```
 
-這種模式下 API 失敗會直接中止。
+在 `.env` 已設定 URL、token、report 路徑時，通常不需要再重複帶這些值。[7][9]
 
-### 模式三：Hybrid（推薦）
-
-```bash
-export UANALYZE_API_TOKEN='your_token'
-PYTHONPATH=. python -m src.main \
-  --source hybrid \
-  --stock-code 1101 \
-  --country TW \
-  --annual-url 'https://develop.api.uanalyze.com.tw/data_fetch/api/ReutersSmartEstimate_EPS/{stock_code}?country={country}' \
-  --quarterly-url 'https://develop.api.uanalyze.com.tw/data_fetch/api/ReutersSmartEstimate_EPS_Quarterly/{stock_code}?country={country}' \
-  --annual-fallback data/samples/2454_annual.json \
-  --quarterly-fallback data/samples/2454_quarterly.json \
-  --json-report output/reports/report.json \
-  --md-report output/reports/report.md
-```
-
-這種模式下 API 若失敗，仍可產出 report。
-
----
-
-## 環境變數與 Secrets
-
-本專案使用環境變數管理敏感設定與執行參數，例如：
-
-- `UANALYZE_API_TOKEN`
-- `UANALYZE_API_TIMEOUT`
-
-這樣做的原因是：API token 不應寫死在程式碼、README 或 repo 裡，而應由執行環境提供。這也符合 12-factor app 對 config 的建議：將設定存放在環境變數，而不是硬編碼在程式中。
-
-### 必要的環境變數
-
-#### `UANALYZE_API_TOKEN`
-用來呼叫 UAnalyze API 的 Bearer token。
-
-#### `UANALYZE_API_TIMEOUT`
-API timeout 秒數，預設可設為 `10`。
-
----
-
-## 本機開發
-
-本機開發有兩種常見方式：
-
-### 方式一：直接在 shell 設定（推薦、最簡單）
-
-```bash
-export UANALYZE_API_TOKEN='your_token'
-export UANALYZE_API_TIMEOUT='10'
-```
-
-然後再執行程式：
+### 模式三：Hybrid（單檔，推薦）
 
 ```bash
 PYTHONPATH=. python -m src.main \
   --source hybrid \
-  --stock-code 1101 \
-  --country TW \
-  --annual-url 'https://develop.api.uanalyze.com.tw/data_fetch/api/ReutersSmartEstimate_EPS/{stock_code}?country={country}' \
-  --quarterly-url 'https://develop.api.uanalyze.com.tw/data_fetch/api/ReutersSmartEstimate_EPS_Quarterly/{stock_code}?country={country}' \
-  --annual-fallback data/samples/2454_annual.json \
-  --quarterly-fallback data/samples/2454_quarterly.json \
-  --json-report output/reports/report.json \
-  --md-report output/reports/report.md
+  --stock-code 2454 \
+  --country TW
 ```
 
-### 方式二：使用 `.env` 檔（方便，但非必要）
+這種模式下 API 若失敗，仍可 fallback 到 sample 並產出 report。[1][6]
 
-在專案根目錄建立 `.env`：
+### 模式四：Batch（推薦）
 
-```env
-UANALYZE_API_TOKEN=your_token
-UANALYZE_API_TIMEOUT=10
+```bash
+PYTHONPATH=. python -m src.main \
+  --source hybrid \
+  --stocks-file data/test_stocks.json
 ```
 
-並建立 `.env.example` 作為範本：
+若 `.env` 已設定 `UANALYZE_SOURCE` 與 `UANALYZE_STOCKS_FILE`，則可以直接執行：[5][2]
 
-```env
-UANALYZE_API_TOKEN=
-UANALYZE_API_TIMEOUT=10
+```bash
+PYTHONPATH=. python -m src.main
 ```
 
-請注意：
+***
 
-- `.env` 放真實值，只供本機使用
-- `.env.example` 可 commit，讓其他人知道需要哪些變數
-- `.env` 不可 commit，應加入 `.gitignore`
+## Source metadata
 
----
+每次單檔 report 都會把來源資訊寫進 report，方便追蹤該次結果是來自真 API 還是 fallback sample。[1][6]
 
-## dotenv 是必要的嗎？
-
-不是必要。
-
-本專案只要透過 `os.getenv()` 讀取環境變數，就能正常運作。也就是說：
-
-- 本機可以用 `export ...` 設定
-- GitHub Actions 可以用 Secrets 注入
-- 正式環境可以由部署平台提供 env vars
-
-如果希望本機開發更方便，可以自行加入 `python-dotenv` 與 `load_dotenv()`，讓 `.env` 自動載入；但這不是 CI 或 production 的必要條件。
-
----
-
-## GitHub Actions Secrets
-
-在 GitHub Actions 中，不要把 token 寫在 workflow 檔案裡，應使用 GitHub Secrets。
-
-### 新增 repository secret 的步驟
-
-1. 打開 GitHub repository
-2. 進入 `Settings`
-3. 點選 `Secrets and variables`
-4. 點選 `Actions`
-5. 按 `New repository secret`
-6. Name 輸入：`UANALYZE_API_TOKEN`
-7. Value 輸入你的實際 token
-
-之後就可以在 workflow 中這樣使用：
-
-```yaml
-env:
-  UANALYZE_API_TOKEN: ${{ secrets.UANALYZE_API_TOKEN }}
-  UANALYZE_API_TIMEOUT: "10"
+```json
+{
+  "source_metadata": {
+    "annual_source": "fallback_file",
+    "annual_url": "https://...",
+    "annual_api_error": "ValueError: API returned error payload: code=E400004, message=['Not found.']",
+    "quarterly_source": "api",
+    "quarterly_url": "https://...",
+    "quarterly_api_error": null
+  }
+}
 ```
 
----
+這段資訊非常重要，因為可以從中得知：[1][6]
 
-## `.gitignore` 建議
+- 這次 report 是吃到真 API 還是 sample。
+- annual 與 quarterly 是否來自不同來源。
+- API 是 HTTP fail 還是 payload business error。
 
-```gitignore
-.env
-.venv/
-__pycache__/
-.pytest_cache/
-output/
+***
+
+## Batch summary 範例
+
+目前 batch summary 的 run summary 與 item schema 如下：[2]
+
+```json
+{
+  "run_summary": {
+    "total": 3,
+    "pass": 3,
+    "fail": 0
+  },
+  "items": [
+    {
+      "stock_code": "2454",
+      "stock_name": "聯發科",
+      "country": "TW",
+      "status": "PASS",
+      "annual_source": "api",
+      "quarterly_source": "api",
+      "annual_errors": 0,
+      "annual_warns": 0,
+      "quarterly_errors": 0,
+      "quarterly_warns": 0,
+      "reconcile_errors": 0,
+      "reconcile_warns": 0,
+      "error": null
+    }
+  ]
+}
 ```
 
----
+這份 schema 已適合直接作為 CI / dashboard / nightly monitor 的摘要資料來源。[2][3]
 
-## config.py 讀取方式
-
-本專案建議在 `src/config.py` 中用 `os.getenv()` 讀環境變數，例如：
-
-```python
-api_token = os.getenv("UANALYZE_API_TOKEN")
-timeout = float(os.getenv("UANALYZE_API_TIMEOUT", "10"))
-```
-
-這樣做的好處是：
-
-- 不需要把 token 寫死在 repo
-- 本機、CI、正式環境可共用同一份程式碼
-- 變更設定時不需要改 code，只需要改執行環境
-
----
-
-## 建議做法總結
-
-- 本機開發：可直接用 `export`，或選擇使用 `.env`
-- `.env`：只供本機使用，不可 commit
-- `.env.example`：可 commit
-- GitHub Actions：使用 repository secrets
-- production：使用部署平台提供的環境變數
-
----
+***
 
 ## 測試方式
 
@@ -514,28 +393,32 @@ timeout = float(os.getenv("UANALYZE_API_TIMEOUT", "10"))
 PYTHONPATH=. pytest -q
 ```
 
-建議至少保留以下測試：
+建議至少保留以下測試：[1]
 
 - annual validator 的 `range_flat`
 - quarterly validator 的 `historical_gap`
 - reconcile validator 的 `match`
 - loader 的 header / URL 組裝
+- batch stock list loading
+- batch summary reporter 欄位完整性
 
----
+***
 
-## 建議的 exit code 規則
+## exit code 規則
 
-目前 `main.py` 的預設邏輯是：
+目前 `main.py` 的預設邏輯是：[1]
 
-- annual / quarterly 只要出現 `ERROR` → exit 1
-- reconcile 的 `WARN` 暫時不讓 pipeline fail
-- 如果未來要更嚴格，可以把 `fail_on_reconcile_warn=True`
+- annual / quarterly 只要出現 `ERROR` → exit 1。
+- reconcile 的 `WARN` 預設不讓 pipeline fail。
+- 如果未來要更嚴格，可以把 `fail_on_reconcile_warn=True`。[1]
 
-這個策略適合現在的階段，因為年 / 季對帳常常會有 rounding 或資料更新時間差，不應一開始就把所有 reconcile warning 當成 hard failure。
+這個策略適合現在的階段，因為年 / 季對帳常常會有 rounding 或資料更新時間差，不適合一開始就把所有 reconcile warning 當成 hard failure。[1]
 
----
+***
 
-## 建議的 GitHub Actions 方向
+## GitHub Actions 方向
+
+建議 workflow 流程如下：[1][10]
 
 1. checkout repo
 2. setup python
@@ -544,23 +427,24 @@ PYTHONPATH=. pytest -q
 5. 用 `--source hybrid` 跑 validator
 6. 把 `output/reports/` 上傳為 artifact
 
-另外，token 應該放在 GitHub Secrets，不要寫死在 repo 裡。
+如果 batch mode 已是主要使用方式，建議在 CI 中直接上傳 individual reports 加 summary reports，方便回看每檔細節與整批狀態。[10][2][3]
 
----
+***
 
 ## 下一步可以擴充什麼
 
-### 1. 批次多股票模式
+### 1. Summary metadata
 
-目前先支援單一 stock code，下一步可以改成：
+可以在 `summary.json` 再加入：[2]
 
-- `--stock-codes 1101,2454,2317`
-- 批次跑 annual / quarterly
-- 產出 summary table
+- `generated_at`
+- `validator_version`
+- `annual_api_error`
+- `quarterly_api_error`
 
 ### 2. Snapshot compare
 
-可以把前一天 API 結果存到 `data/snapshots/`，再比對：
+可以把前一天 API 結果存到 `data/snapshots/`，再比對：[1]
 
 - 哪個 historical 值被改寫
 - 哪個 forecast 大幅跳動
@@ -568,16 +452,16 @@ PYTHONPATH=. pytest -q
 
 ### 3. 更細的 business rules
 
-例如：
+例如：[1]
 
 - forecast 年度必須連續
 - 季資料 forecast 不可倒退
 - 某些異常跳幅列成 warning
 - 不同 coverage 數量觸發不同等級提醒
 
-### 4. 支援 CSV / db / dashboard
+### 4. 支援更多輸出目的地
 
-之後可把結果寫進：
+之後可把結果寫進：[1]
 
 - CSV
 - SQLite / Postgres
