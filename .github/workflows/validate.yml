@@ -5,34 +5,52 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch: # 讓我們可以在 GitHub 網頁上點按鈕手動觸發
+  workflow_dispatch:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest # 使用雲端的 Linux 伺服器跑你的程式
+    runs-on: ubuntu-latest
+    env:
+      UANALYZE_API_TOKEN: ${{ secrets.UANALYZE_API_TOKEN }}
+      UANALYZE_API_TIMEOUT: "10"
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4 # 把你的程式碼複製到雲端電腦上
+        uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v5 # 在雲端安裝 Python 環境
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+          cache: "pip"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run tests
+        run: |
+          PYTHONPATH=. pytest -q
 
       - name: Run validator
         run: |
-          # 執行你的主程式！
-          python src/main.py
+          PYTHONPATH=. python -m src.main \
+            --source hybrid \
+            --stock-code 2454 \
+            --country TW \
+            --annual-url 'https://develop.api.uanalyze.com.tw/data_fetch/api/ReutersSmartEstimate_EPS/{stock_code}?country={country}' \
+            --quarterly-url 'https://develop.api.uanalyze.com.tw/data_fetch/api/ReutersSmartEstimate_EPS_Quarterly/{stock_code}?country={country}' \
+            --annual-fallback data/samples/2454_annual.json \
+            --quarterly-fallback data/samples/2454_quarterly.json \
+            --json-report output/reports/report.json \
+            --md-report output/reports/report.md
 
       - name: Upload validation report
-        if: always() # 就算前面的步驟因為 sys.exit(1) 失敗了，這一步也一定要執行
-        uses: actions/upload-artifact@v4 # 把產出的報告打包，讓你在網頁上下載
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: validation-report
           path: output/reports/
+          if-no-files-found: warn

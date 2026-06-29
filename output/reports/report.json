@@ -1,17 +1,196 @@
 {
-  "stock_code": "6510",
-  "run_mode": "ci",
-  "summary": {
-    "error_count": 1,
-    "warn_count": 0,
-    "info_count": 0
+  "stock_code": "2454",
+  "stock_name": "聯發科",
+  "source_metadata": {
+    "annual_source": "file",
+    "annual_url": null,
+    "annual_api_error": null,
+    "quarterly_source": "file",
+    "quarterly_url": null,
+    "quarterly_api_error": null
   },
-  "results": [
+  "annual_summary": {
+    "ERROR": 0,
+    "WARN": 0,
+    "INFO": 2
+  },
+  "quarterly_summary": {
+    "ERROR": 0,
+    "WARN": 0,
+    "INFO": 0
+  },
+  "reconcile_summary": {
+    "ERROR": 0,
+    "WARN": 0,
+    "INFO": 11
+  },
+  "annual_results": [
     {
-      "rule": "missing_value_check",
-      "severity": "ERROR",
-      "period": "2025Q4",
-      "message": "數值缺失 (Missing Value)"
+      "layer": "annual",
+      "rule": "range_flat",
+      "severity": "INFO",
+      "period": "2029(f)",
+      "message": "low = mean = high",
+      "details": {
+        "period": "2029(f)",
+        "year": 2029,
+        "quarter": null,
+        "is_forecast": true,
+        "mean": 198.58,
+        "low": 198.58,
+        "high": 198.58
+      }
+    },
+    {
+      "layer": "annual",
+      "rule": "range_flat",
+      "severity": "INFO",
+      "period": "2030(f)",
+      "message": "low = mean = high",
+      "details": {
+        "period": "2030(f)",
+        "year": 2030,
+        "quarter": null,
+        "is_forecast": true,
+        "mean": 233.56,
+        "low": 233.56,
+        "high": 233.56
+      }
+    }
+  ],
+  "quarterly_results": [],
+  "reconcile_results": [
+    {
+      "layer": "reconcile",
+      "rule": "annual_vs_quarter_sum",
+      "severity": "INFO",
+      "period": "2016",
+      "message": "match",
+      "details": {
+        "annual": 15.16,
+        "quarter_sum": 15.16,
+        "diff": 0.0
+      }
+    },
+    {
+      "layer": "reconcile",
+      "rule": "annual_vs_quarter_sum",
+      "severity": "INFO",
+      "period": "2017",
+      "message": "match",
+      "details": {
+        "annual": 15.56,
+        "quarter_sum": 15.56,
+        "diff": 0.0
+      }
+    },
+    {
+      "layer": "reconcile",
+      "rule": "annual_vs_quarter_sum",
+      "severity": "INFO",
+      "period": "2018",
+      "message": "match",
+      "details": {
+        "annual": 13.26,
+        "quarter_sum": 13.26,
+        "diff": 0.0
+      }
+    },
+    {
+      "layer": "reconcile",
+      "rule": "annual_vs_quarter_sum",
+      "severity": "INFO",
+      "period": "2019",
+      "message": "match",
+      "details": {
+        "annual": 14.69,
+        "quarter_sum": 14.69,
+        "diff": 0.0
+      }
+    },
+    {
+      "layer": "reconcile",
+      "rule": "annual_vs_quarter_sum",
+      "severity": "INFO",
+      "period": "2020",
+      "message": "match",
+      "details": {
+        "annual": 26.01,
+        "quarter_sum": 26.0,
+        "diff": 0.01
+      }
+    },
+    {
+      "layer": "reconcile",
+      "rule": "annual_vs_quarter_sum",
+      "severity": "INFO",
+      "period": "2021",
+      "message": "match",
+      "details": {
+        "annual": 70.56,
+        "quarter_sum": 70.56,
+        "diff": 0.0
+      }
+    },
+    {
+      "layer": "reconcile",
+      "rule": "annual_vs_quarter_sum",
+      "severity": "INFO",
+      "period": "2022",
+      "message": "match",
+      "details": {
+        "annual": 74.59,
+        "quarter_sum": 74.59,
+        "diff": 0.0
+      }
+    },
+    {
+      "layer": "reconcile",
+      "rule": "annual_vs_quarter_sum",
+      "severity": "INFO",
+      "period": "2023",
+      "message": "match",
+      "details": {
+        "annual": 48.51,
+        "quarter_sum": 48.51,
+        "diff": 0.0
+      }
+    },
+    {
+      "layer": "reconcile",
+      "rule": "annual_vs_quarter_sum",
+      "severity": "INFO",
+      "period": "2024",
+      "message": "match",
+      "details": {
+        "annual": 66.92,
+        "quarter_sum": 66.92,
+        "diff": 0.0
+      }
+    },
+    {
+      "layer": "reconcile",
+      "rule": "annual_vs_quarter_sum",
+      "severity": "INFO",
+      "period": "2025",
+      "message": "match",
+      "details": {
+        "annual": 66.16,
+        "quarter_sum": 66.17,
+        "diff": 0.01
+      }
+    },
+    {
+      "layer": "reconcile",
+      "rule": "annual_missing",
+      "severity": "INFO",
+      "period": "2026",
+      "message": "quarterly history exists but annual history missing",
+      "details": {
+        "quarters_found": [
+          1
+        ]
+      }
     }
   ]
 }
