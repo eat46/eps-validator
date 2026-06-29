@@ -2,17 +2,23 @@ name: Validate EPS Pipeline
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+
     env:
+      PYTHONPATH: .
       UANALYZE_API_TOKEN: ${{ secrets.UANALYZE_API_TOKEN }}
       UANALYZE_API_TIMEOUT: "10"
+      UANALYZE_ANNUAL_URL: "https://api.uanalyze.com.tw/data_fetch/api/ReutersSmartEstimate_EPS/{stock_code}?country={country}"
+      UANALYZE_QUARTERLY_URL: "https://api.uanalyze.com.tw/data_fetch/api/ReutersSmartEstimate_EPS_Quarterly/{stock_code}?country={country}"
 
     steps:
       - name: Checkout repository
@@ -22,26 +28,33 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Verify API token exists
+        shell: bash
+        run: |
+          if [ -z "${UANALYZE_API_TOKEN}" ]; then
+            echo "UANALYZE_API_TOKEN is not set."
+            echo "Please add it in GitHub: Settings > Secrets and variables > Actions > New repository secret"
+            exit 1
+          fi
 
       - name: Run tests
         run: |
-          PYTHONPATH=. pytest -q
+          pytest -q
 
       - name: Run validator
         run: |
-          PYTHONPATH=. python -m src.main \
+          python -m src.main \
             --source hybrid \
             --stock-code 2454 \
             --country TW \
-            --annual-url 'https://develop.api.uanalyze.com.tw/data_fetch/api/ReutersSmartEstimate_EPS/{stock_code}?country={country}' \
-            --quarterly-url 'https://develop.api.uanalyze.com.tw/data_fetch/api/ReutersSmartEstimate_EPS_Quarterly/{stock_code}?country={country}' \
+            --annual-url "$UANALYZE_ANNUAL_URL" \
+            --quarterly-url "$UANALYZE_QUARTERLY_URL" \
             --annual-fallback data/samples/2454_annual.json \
             --quarterly-fallback data/samples/2454_quarterly.json \
             --json-report output/reports/report.json \
@@ -53,4 +66,3 @@ jobs:
         with:
           name: validation-report
           path: output/reports/
-          if-no-files-found: warn
